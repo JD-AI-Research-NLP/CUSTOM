@@ -15,3 +15,5 @@
 
 
 - ### UniLM模型运行步骤
+    1. 下载Bert-base chinese版本解压至pretrained_model文件夹
+    2. 打开run_seq2seq.sh，修改data_dir为指定数据集根目录，修改output_dir和log为保存模型和log路径
