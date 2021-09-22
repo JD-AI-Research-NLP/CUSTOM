@@ -11,7 +11,6 @@ import jieba
 
 from transformers import BertTokenizer
 import pdb
-tokenizer = BertTokenizer.from_pretrained('/home/liangjiahui8/notespace/Unilm_aspect/pretrained_model/')
 
 dm_single_close_quote = u'\u2019'  # unicode
 dm_double_close_quote = u'\u201d'
@@ -26,7 +25,7 @@ SENTENCE_END = '</s>'
 data_dir = os.path.join(sys.argv[1], 'data')
 domain = sys.argv[2]#'chuju'
 dataset = sys.argv[3]#'test'
-tableName = sys.argv[4] #table or table.comp
+tokenizer = BertTokenizer.from_pretrained(sys.argv[4])
 output = domain + '_' + dataset + '_writing_bin'
 input = domain + '_' + dataset
 

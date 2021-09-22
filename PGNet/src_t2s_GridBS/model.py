@@ -33,14 +33,6 @@ class SummarizationModel(object):
     self.lr = hps.lr
     self._vocab = vocab
     self._vocab_aspect = vocab_aspect
-    sp_word_mask = [1] * self._vocab.size()
-    r1 = open(FLAGS.sp_word_mask, 'r')
-    for line in r1.readlines():
-       word = line.strip()
-       if word in vocab._word_to_id:
-           sp_word_mask[vocab._word_to_id[word]] = 1e-10
-    self.sp_word_mask = sp_word_mask
-   
 
   def _add_placeholders(self):
     """Add placeholders to the graph. These are entry points for any input data."""
@@ -73,7 +65,6 @@ class SummarizationModel(object):
 
     # decoder part
     self._dec_batch = tf.placeholder(tf.int32, [hps.batch_size, hps.max_dec_steps], name='dec_batch')
-    self._constraint_id = tf.placeholder(tf.int32, [hps.batch_size], name='constraint_id')
     self._target_batch = tf.placeholder(tf.int32, [hps.batch_size, hps.max_dec_steps], name='target_batch')
     self._dec_padding_mask = tf.placeholder(tf.float32, [hps.batch_size, hps.max_dec_steps], name='dec_padding_mask')
 
@@ -270,7 +261,7 @@ class SummarizationModel(object):
 
     return outputs, out_state, attn_dists, p_gens, coverage
 
-  def _calc_final_dist(self, vocab_dists, attn_dists, sp_word_mask):
+  def _calc_final_dist(self, vocab_dists, attn_dists):
     """Calculate the final distribution, for the pointer-generator model
 
     Args:
@@ -285,7 +276,6 @@ class SummarizationModel(object):
       print(vocab_dists)
       self.vocab_dists_ = vocab_dists
       vocab_dists = [p_gen * dist for (p_gen,dist) in zip(self.p_gens, vocab_dists)]
-      #vocab_dists = [dist * sp_word_mask for (p_gen,dist) in zip(self.p_gens, vocab_dists)]
       self.vocab_dists__ = vocab_dists
       attn_dists = [(1-p_gen) * dist for (p_gen,dist) in zip(self.p_gens, attn_dists)]
 
@@ -417,7 +407,7 @@ class SummarizationModel(object):
 
       # For pointer-generator model, calc final distribution from copy distribution and vocabulary distribution
       if FLAGS.pointer_gen:
-        final_dists = self._calc_final_dist(vocab_dists, self.attn_dists, self.sp_word_mask)
+        final_dists = self._calc_final_dist(vocab_dists, self.attn_dists)
       else: # final distribution is just vocabulary distribution
         final_dists = vocab_dists
       if hps.mode in ['train', 'eval']:
@@ -460,9 +450,6 @@ class SummarizationModel(object):
       self._topk_log_probs = tf.log(topk_probs + 0.0000001)
       self._final_dist = final_dists
       indices=tf.range(0, limit=hps.batch_size)
-      indices=tf.stack((indices,self._constraint_id), axis=1)
-      self.constraint_prob = tf.log(tf.gather_nd(final_dists,indices) + 0.0000001)
-      #print(self.constraint_prob)
 
   def _add_train_op(self):
     """Sets self._train_op, the op to run for training."""
@@ -544,7 +531,7 @@ class SummarizationModel(object):
     dec_in_state = tf.contrib.rnn.LSTMStateTuple(dec_in_state.c[0], dec_in_state.h[0])
     return enc_states, enc_aspect, dec_in_state, selector_probs
 
-  def decode_onestep_constraint(self, sess, batch, latest_tokens, constraint_tokens,
+  def decode_onestep_constraint(self, sess, batch, latest_tokens,
                                 enc_states, enc_aspects, dec_init_states, selector_probs, prev_coverage):
     beam_size = len(dec_init_states)
 #     import pdb
@@ -563,8 +550,7 @@ class SummarizationModel(object):
       self._enc_table_padding_mask: batch.enc_table_padding_mask,
       self._enc_sent_id_mask: batch.enc_sent_id_mask,
       self._dec_in_state: new_dec_in_state,
-      self._dec_batch: np.transpose(np.array([latest_tokens])),
-      self._constraint_id: constraint_tokens
+      self._dec_batch: np.transpose(np.array([latest_tokens]))
     }
     to_return = {
       "pro_1": self.vocab_dists_,
@@ -572,8 +558,7 @@ class SummarizationModel(object):
       "ids": self._topk_ids,
       "probs": self._topk_log_probs,
       "states": self._dec_out_state,
-      "attn_dists": self.attn_dists,
-      "constraint_prob": self.constraint_prob
+      "attn_dists": self.attn_dists
     }
     if FLAGS.pointer_gen:
       feed[self._enc_batch_extend_vocab] = batch.enc_batch_extend_vocab
@@ -614,7 +599,7 @@ class SummarizationModel(object):
       new_coverage = [None for _ in range(beam_size)]
     #print(results['pro_1'][0][0][5])
     #print(results['pro_2'][0][0][5])
-    return results['ids'], results['probs'], results['constraint_prob'], new_states, attn_dists, p_gens, new_coverage
+    return results['ids'], results['probs'], new_states, attn_dists, p_gens, new_coverage
 
 def _mask_and_avg(values, padding_mask):
   """Applies mask to values then returns overall average (a scalar)

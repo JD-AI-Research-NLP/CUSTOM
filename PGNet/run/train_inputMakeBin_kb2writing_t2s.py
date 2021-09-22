@@ -10,7 +10,6 @@ from collections import defaultdict
 import jieba
 from transformers import BertTokenizer
 import pdb
-tokenizer = BertTokenizer.from_pretrained('/home/liangjiahui8/notespace/Unilm_aspect/pretrained_model/')
 
 dm_single_close_quote = u'\u2019'  # unicode
 dm_double_close_quote = u'\u201d'
@@ -32,26 +31,27 @@ SENTENCE_END = '</s>'
 data_dir = os.path.join(sys.argv[1], 'data')
 input = sys.argv[2]
 dataset = sys.argv[3]
+tokenizer = BertTokenizer.from_pretrained(sys.argv[4])
 output = input + "_" + dataset + "_writing_bin"
 
 #train_data_files = os.path.join(data_dir, input, "train.table")
 train_data_files = os.path.join(data_dir, input, "train.table.com")
-valid_data_files = os.path.join(data_dir, input, "dev.table.com")
+# valid_data_files = os.path.join(data_dir, input, "dev.table.com")
 #test_data_files = "/export/homes/wangyifan/kb_write/shouji/data/shouji/out1"
-test_data_files = os.path.join(data_dir, input, "test.table.com")
+# test_data_files = os.path.join(data_dir, input, "test.table.com")
 #train_label_files = os.path.join(data_dir, input, "train.text")
 
 train_aspect_files = os.path.join(data_dir, input, "train.aspect")
-dev_aspect_files = os.path.join(data_dir, input, "dev.aspect")
-test_aspect_files = os.path.join(data_dir, input, "test.aspect")
+# dev_aspect_files = os.path.join(data_dir, input, "dev.aspect")
+# test_aspect_files = os.path.join(data_dir, input, "test.aspect")
 
 train_focus_files = os.path.join(data_dir, input, "train.focus")
 
 train_label_files = os.path.join(data_dir, input, "train.text")
 
-valid_label_files = os.path.join(data_dir, input, "dev.text")
+# valid_label_files = os.path.join(data_dir, input, "dev.text")
 #test_label_files = "/export/homes/wangyifan/kb_write/shouji/data/shouji/train.text"
-test_label_files = os.path.join(data_dir, input, "test.text")
+# test_label_files = os.path.join(data_dir, input, "test.text")
 
 finished_files_dir = os.path.join(data_dir, output, "bin")
 print(finished_files_dir)
@@ -352,9 +352,9 @@ if __name__ == '__main__':
   # Read the tokenized stories, do a little postprocessing then write to bin files
   print('start writing train file...')
   write_to_bin(train_data_files, train_aspect_files, train_focus_files, train_label_files, os.path.join(finished_files_dir, "train.bin"), encode_type, True)
-  print('start writing dev file...')
+  # print('start writing dev file...')
 #   write_to_bin(valid_data_files, valid_label_files, os.path.join(finished_files_dir, "dev.bin"), encode_type)
-  print('start writing test file...')
+  # print('start writing test file...')
 #   write_to_bin(test_data_files, test_label_files, os.path.join(finished_files_dir, "test.bin"), encode_type)
 
   # Chunk the data. This splits each of train.bin, val.bin and test.bin into smaller chunks, each containing e.g. 1000 examples, and saves them in finished_files/chunks

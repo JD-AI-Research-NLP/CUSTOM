@@ -49,29 +49,14 @@ FLAGS = tf.app.flags.FLAGS
 
 tf.app.flags.DEFINE_string('data_path', '', 'Path expression to tf.Example datafiles. Can include wildcards to access multiple datafiles.')
 tf.app.flags.DEFINE_string('eval_data_path', '', 'Path expression to tf.Example datafiles. Can include wildcards to access multiple datafiles.')
-tf.app.flags.DEFINE_string('sp_word_mask', '', 'Path expression to tf.Example datafiles. Can include wildcards to access multiple datafiles.')
 tf.app.flags.DEFINE_string('vocab_path', '', 'Path expression to text vocabulary file.')
 tf.app.flags.DEFINE_string('vocab_aspect_path', '', 'Path expression to aspect vocabulary file.')
-tf.app.flags.DEFINE_string('ckg_path', '', 'Path expression to text vocabulary file.')
-tf.app.flags.DEFINE_string('unigram_path', '', 'Path expression to text vocabulary file.')
-tf.app.flags.DEFINE_string('bigram_path', '', 'Path expression to text vocabulary file.')
-tf.app.flags.DEFINE_string('conflic_path', '', 'Path expression to text vocabulary file.')
-tf.app.flags.DEFINE_string('conflic_path_inner', '', 'Path expression to text vocabulary file.')
-tf.app.flags.DEFINE_string('conflic_path_between', '', 'Path expression to text vocabulary file.')
-tf.app.flags.DEFINE_string('funcWords_file_path', '', 'Path expression to text vocabulary file.')
-tf.app.flags.DEFINE_string('blackWord_path', '', 'Path expression to text vocabulary file.')
-tf.app.flags.DEFINE_string('source_dict', '', 'Path expression to text vocabulary file.')
-tf.app.flags.DEFINE_string('stopWords_path', '', 'Path expression to text vocabulary file.')
 tf.app.flags.DEFINE_float('arg1', '0.5', 'Path expression to text vocabulary file.')
 tf.app.flags.DEFINE_float('arg2', '0.5', 'Path expression to text vocabulary file.')
-tf.app.flags.DEFINE_string('constraint_path', '', 'Path expression to text vocabulary file.')
-tf.app.flags.DEFINE_string('eval_constraint_path', '', 'Path expression to text vocabulary file.')
 tf.app.flags.DEFINE_string('ocr_path', '', 'Path expression to text vocabulary file.')
 tf.app.flags.DEFINE_string('eval_ocr_path', '', 'Path expression to text vocabulary file.')
 tf.app.flags.DEFINE_string('decode_id_path', '', 'Path expression to text vocabulary file.')
 tf.app.flags.DEFINE_string('dataset', '', 'Path expression to tf.Example datafiles. Can include wildcards to access multiple datafiles.')
-tf.app.flags.DEFINE_string('trigram_path', '', 'Path expression to text vocabulary file.')
-tf.app.flags.DEFINE_string('trigram_v2_path', '', 'Path expression to text vocabulary file.')
 # Important settings
 tf.app.flags.DEFINE_string('mode', 'train', 'must be one of train/eval/decode')
 tf.app.flags.DEFINE_boolean('single_pass', False, 'For decode mode only. If True, run eval on the full dataset using a fixed checkpoint, i.e. take the current checkpoint, and use it to produce one summary for each example in the dataset, write the summaries to file and then get ROUGE scores for the whole dataset. If False (default), run concurrent decoding, i.e. repeatedly load latest checkpoint, use it to produce summaries for randomly-chosen examples and log the results to screen, indefinitely.')
@@ -200,7 +185,7 @@ def setup_training(model, vocab, vocab_aspect, hps, queue_ = None):
   import os
 #   os.environ["CUDA_VISIBLE_DEVICES"] = "2"
   """Does setup before starting training (run_training)"""
-  batcher = Batcher(FLAGS.data_path, FLAGS.constraint_path, FLAGS.ocr_path, vocab, vocab_aspect, hps, single_pass=FLAGS.single_pass)
+  batcher = Batcher(FLAGS.data_path, vocab, vocab_aspect, hps, single_pass=FLAGS.single_pass)
   train_dir = os.path.join(FLAGS.log_root, "train")
 #   eval_dir = os.path.join(FLAGS.log_root, "eval")
 #   eval_writer = tf.summary.FileWriter(eval_dir)
@@ -278,7 +263,7 @@ def run_training(saver, model, batcher, sess_context_manager, sv, summary_writer
         t0 = time.time()
       if train_step % 1000 == 0: # eval every 1k step
           tf.logging.info('start evaluate')
-          batcher_eval = Batcher(FLAGS.eval_data_path, FLAGS.eval_constraint_path, FLAGS.eval_ocr_path, batcher._vocab, batcher._vocab_aspect, batcher._hps, single_pass=True)
+          batcher_eval = Batcher(FLAGS.eval_data_path, batcher._vocab, batcher._vocab_aspect, batcher._hps, single_pass=True)
           ppl = list()
           count = 0
           while True:
@@ -332,18 +317,7 @@ def main(unused_argv):
   vocab = Vocab(FLAGS.vocab_path, FLAGS.vocab_size) # create a vocabulary
   vocab_aspect = Vocab_aspect(FLAGS.vocab_aspect_path, FLAGS.vocab_size)
   tf.logging.info('Building CKG graph ...')
-  ckg = None
-#   ckg = CKG(FLAGS.ckg_path)
-  funcWords = FuncWords(FLAGS.funcWords_file_path)
-  black_list = BlackWords(FLAGS.blackWord_path)
-  bigramlm = BiGramLM(FLAGS.unigram_path, FLAGS.bigram_path)
-  confictValues = ConflictJudger(FLAGS.conflic_path)
-  trigram = Trigram(FLAGS.trigram_path)
-  trigram_v2 = Trigram_v2(FLAGS.trigram_v2_path)
-  source_dict = Source_dict(FLAGS.source_dict)
   train_text = Train_text(FLAGS.train_text_path)
-  stopWords = [_.strip() for _ in open(FLAGS.stopWords_path, 'r', encoding='utf-8')]
-  print('stopword length: {0}'.format(len(stopWords)))
   # If in decode mode, set batch_size = beam_size
   # Reason: in decode mode, we decode one example at a time.
   # On each step, we have beam_size-many hypotheses in the beam, so we need to make a batch of these hypotheses.
@@ -367,35 +341,19 @@ def main(unused_argv):
   #batcher_eval = Batcher(FLAGS.eval_data_path, FLAGS.eval_constraint_path, FLAGS.eval_ocr_path, vocab, hps, single_pass=FLAGS.single_pass)
 
   tf.set_random_seed(111) # a seed value for randomness
-
   if hps.mode == 'train':
     print("creating model...")
     model = SummarizationModel(hps, vocab, vocab_aspect)
-#     model_eval = SummarizationModel(hps, vocab, vocab_aspect)
-    # 训练，验证两个进程，用queue进行同步
-#     queue_ = Manager().Queue()
-#     p_train = Process(target=setup_training, args=(model, batcher, queue_))
-#     p_train = Process(target=setup_training, args=(model, vocab, vocab_aspect, hps, queue_))
-#     p_eval = Process(target=run_eval, args=(model_eval, vocab, vocab_aspect, hps, queue_)) 
-#     p_train.start()
-#     p_eval.start()
-#     p_train.join()
-#     p_eval.join()
-#     time.sleep(10)
     setup_training(model, vocab, vocab_aspect, hps)
-    #run_eval(model_eval, batcher_eval, vocab)
-  elif hps.mode == 'eval':
-    model = SummarizationModel(hps, vocab)
-    run_eval(model, batcher, vocab)
   elif hps.mode == 'decode':
-    batcher = Batcher(FLAGS.data_path, FLAGS.constraint_path, FLAGS.ocr_path, vocab, vocab_aspect, hps, single_pass=FLAGS.single_pass)
+    batcher = Batcher(FLAGS.data_path, vocab, vocab_aspect, hps, single_pass=FLAGS.single_pass)
 #     batch = batcher.next_batch()
 #     print(batch.art_padding_mask)
     decode_model_hps = hps  # This will be the hyperparameters for the decoder model
     decode_model_hps = hps._replace(max_dec_steps=1) # The model is configured with max_dec_steps=1 because we only ever run one step of the decoder at a time (to do beam search). Note that the batcher is initialized with max_dec_steps equal to e.g. 100 because the batches need to contain the full summaries
     model = SummarizationModel(decode_model_hps, vocab, vocab_aspect)
     consDecoder = ConstrainedDecoder()
-    decoder = BeamSearchDecoder(model, batcher, vocab, ckg, funcWords, black_list, stopWords, consDecoder, bigramlm, confictValues, trigram,trigram_v2,train_text, source_dict, "train")
+    decoder = BeamSearchDecoder(model, batcher, vocab, consDecoder, train_text, "train")
     print('Start Decoding Time: %s'%(time.time()))
     decoder.decode(FLAGS.decode_id_path) # decode indefinitely (unless single_pass=True, in which case deocde the dataset exactly once)
     print('Finish Decoding Time: %s'%(time.time()))

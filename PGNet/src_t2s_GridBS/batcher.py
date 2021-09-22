@@ -29,7 +29,7 @@ import util
 class Example(object):
   """Class representing a train/val/test example for text summarization."""
 
-  def __init__(self, caption, attributes, values, abstract_sentences, aspect, focus, constraints_tokens, ocr_shortSeqs, vocab, vocab_aspect, hps):
+  def __init__(self, caption, attributes, values, abstract_sentences, aspect, focus, vocab, vocab_aspect, hps):
     """Initializes the Example, performing tokenization and truncation to produce the encoder, decoder and target sequences, which are stored in self.
 
     Args:
@@ -103,7 +103,6 @@ class Example(object):
     # print('=====================')
 
     self.sku_kb = {}
-    self.constraints = []
     index = 0
     for attr in self.table_attributes_ori:
       # print(attr)
@@ -140,13 +139,6 @@ class Example(object):
     self.dec_input, self.target = self.get_dec_inp_targ_seqs(abs_ids, hps.max_dec_steps, start_decoding, stop_decoding)
     self.dec_len = len(self.dec_input)
 
-    constraints = []
-    for cons_tokens in constraints_tokens:
-      cons_ids = [vocab.word2id(w) for w in cons_tokens]
-      constraints.append(cons_ids)
-
-    self.dec_constraint_input = constraints
-
     # If using pointer-generator mode, we need to store some extra info
     if hps.pointer_gen:
       self.oovs = []
@@ -157,10 +149,6 @@ class Example(object):
       #print('len(oov):%d' %len(self.oovs))
       self.enc_value_input_extend_vocab, self.oovs = data.article2ids_additive(table_values, vocab, self.oovs)
       #print('len(oov):%d' %len(self.oovs))
-      self.dec_constraint_input = []
-      for con_toks in constraints_tokens:
-        dec_one_cons_input_extend_vocab, self.oovs = data.article2ids_additive(con_toks, vocab, self.oovs)
-        self.dec_constraint_input.append(dec_one_cons_input_extend_vocab)
       # print('len(oov):%d' %len(self.oovs))
 
       # Get a verison of the reference summary where in-article OOVs are represented by their temporary article OOV id
@@ -175,9 +163,6 @@ class Example(object):
     self.values = values
     self.original_abstract = abstract
     self.original_abstract_sents = abstract_sentences
-    # self.original_constraints = constraints_tokens
-    self.constraints_tokens = constraints_tokens
-    self.ocr_shortSeqs=ocr_shortSeqs
 
 
   def get_dec_inp_targ_seqs(self, sequence, max_len, start_id, stop_id):
@@ -373,34 +358,19 @@ class Batch(object):
     self.target_batch = np.zeros((hps.batch_size, hps.max_dec_steps), dtype=np.int32)
     self.dec_padding_mask = np.zeros((hps.batch_size, hps.max_dec_steps), dtype=np.float32)
     self.sku_kbs = []
-    self.constraints_list = []
-    self.constraints_token_list = []
-    self.ocr_shortSeqs_list = []
     self.caption_tokens_list = []
     self.captions = []
     self.kb_strs = []
     self.inputInfo = []
-    self.confictValueUnitsList = []
-    self.inputValuesList = []
-    self.inputLongValuesList = []
-    self.inputValueUnitsList = []
     # Fill in the numpy arrays
     for i, ex in enumerate(example_list):
       self.dec_batch[i, :] = ex.dec_input[:]
       self.target_batch[i, :] = ex.target[:]
       self.sku_kbs.append(ex.sku_kb)
-      self.constraints_list.append(ex.dec_constraint_input)
-      self.constraints_token_list.append(ex.constraints_tokens)
-      self.ocr_shortSeqs_list.append(ex.ocr_shortSeqs)
       self.caption_tokens_list.append(ex.caption_words)
       self.captions.append(ex.caption)
       self.kb_strs.append(ex.kb_str)
       self.inputInfo.append(ex.caption + '。' + ex.kb_str)
-      confVUs, values, longValues, valueUnits = util.conflit_unit(ex.caption + ex.kb_str)
-      self.confictValueUnitsList.append(confVUs)
-      self.inputValuesList.append(values)
-      self.inputLongValuesList.append(longValues)
-      self.inputValueUnitsList.append(valueUnits)
 
       for j in range(ex.dec_len):
         self.dec_padding_mask[i][j] = 1
@@ -417,7 +387,7 @@ class Batcher(object):
 
   BATCH_QUEUE_MAX = 100 # max number of batches the batch_queue can hold
 
-  def __init__(self, data_path, constraint_file, ocr_file, vocab, vocab_aspect, hps, single_pass):
+  def __init__(self, data_path, vocab, vocab_aspect, hps, single_pass):
     """Initialize the batcher. Start threads that process the data into batches.
 
     Args:
@@ -427,8 +397,6 @@ class Batcher(object):
       single_pass: If True, run through the dataset exactly once (useful for when you want to run evaluation on the dev or test set). Otherwise generate random batches indefinitely (useful for training).
     """
     self._data_path = data_path
-    self._constraint_file = constraint_file
-    self._ocr_file = ocr_file
     self._vocab = vocab
     self._vocab_aspect = vocab_aspect
     self._hps = hps
@@ -489,14 +457,9 @@ class Batcher(object):
     """Reads data from file and processes into Examples which are then placed into the example queue."""
 
     input_gen = self.text_generator(data.example_generator(self._data_path, self._single_pass))
-    constraints_gen = data.constraint_generator(self._constraint_file, self._single_pass)
-    ocr_shortSeqs_gen = data.ocr_generator(self._ocr_file, self._single_pass)
-
     while True:
       try:
         (article, attribute, value, abstract, aspect, focus) = next(input_gen) # read the next example from file. article and abstract are both strings.
-        constraints_tokens = next(constraints_gen)
-        ocr_shortSeqs = next(ocr_shortSeqs_gen)
       except StopIteration: # if there are no more examples:
         tf.logging.info("The example generator for this example queue filling thread has exhausted data.")
         if self._single_pass:
@@ -507,7 +470,7 @@ class Batcher(object):
           raise Exception("single_pass mode is off but the example generator is out of data; error.")
 
       abstract_sentences = [sent.strip() for sent in data.abstract2sents(abstract)] # Use the <s> and </s> tags in abstract to get a list of sentences.
-      example = Example(article, attribute, value, abstract_sentences, aspect, focus, constraints_tokens, ocr_shortSeqs, self._vocab, self._vocab_aspect, self._hps) # Process into an Example.
+      example = Example(article, attribute, value, abstract_sentences, aspect, focus, self._vocab, self._vocab_aspect, self._hps) # Process into an Example.
       self._example_queue.put(example) # place the Example in the example queue.
 
   def fill_batch_queue(self):

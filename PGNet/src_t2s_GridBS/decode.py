@@ -29,7 +29,6 @@ import logging
 import numpy as np
 import sys
 import pickle
-from flashtext import KeywordProcessor
 
 FLAGS = tf.app.flags.FLAGS
 
@@ -39,7 +38,7 @@ SECS_UNTIL_NEW_CKPT = sys.maxsize  # max number of seconds before loading new ch
 class BeamSearchDecoder(object):
   """Beam search decoder."""
 
-  def __init__(self, model, batcher, vocab, ckg, funcWords, black_list, stopWords, constraintDecoder, bigramlm, confictValues, trigram, trigram_v2,train_text,source_dict, model_path='train'):
+  def __init__(self, model, batcher, vocab,  constraintDecoder, train_text, model_path='train'):
     """Initialize decoder.
 
     Args:
@@ -51,20 +50,10 @@ class BeamSearchDecoder(object):
     self._model.build_graph()
     self._batcher = batcher
     self._vocab = vocab
-    self.ckg = ckg
-    self.bigramlm = bigramlm
-    self.confictValues = confictValues
-    self.funcWords = funcWords
-    self.black_list = black_list
-    self.trigram = trigram
-    self.trigram_v2 = trigram_v2
-    self.train_text = train_text
-    self.stopWords = stopWords
     self.constraintDecoder = constraintDecoder
     self._saver = tf.train.Saver()  # we use this to load checkpoints for decoding
     self._sess = tf.Session(config=util.get_config())
     self._dic = {}
-    self.source_dict=source_dict
     # Load an initial checkpoint to use for decoding
     ckpt_path = util.load_ckpt(self._saver, self._sess, model_path)
 
@@ -97,17 +86,6 @@ class BeamSearchDecoder(object):
     flags = [_.strip() for _ in open(decode_id_path, 'r', encoding='utf-8').readlines()]
     #print('flags length {0}'.format(len(flags)))
     print('start'+str(time.time()))
-    # 构建字典树
-    source_processor = KeywordProcessor()
-    black_processor = KeywordProcessor()
-    source_words = self.source_dict.getDicts()
-    black_words = self.black_list.getWords()
-    for w in source_words:
-      source_processor.add_keyword(w)
-    for w in black_words:
-      black_processor.add_keyword(w)
-    source_dict = source_processor
-    black_list = black_processor
     num=0
     while True:
       batch = self._batcher.next_batch()
@@ -141,8 +119,6 @@ class BeamSearchDecoder(object):
                                                                attn_dists=[],
                                                                p_gens=[],
                                                                s2s_coverage=np.zeros([batch.enc_batch.shape[1]]),
-                                                               coverage=[],
-                                                               constraints=[],
                                                                payload=None,
                                                                backpointer=None,
                                                                unfinished_constraint=False
@@ -152,8 +128,8 @@ class BeamSearchDecoder(object):
         if FLAGS.force_decoding:
           t1 = time.time()
           best_hyp, selector_probs = beam_search_force_decode.run_beam_search(
-            self._sess, self._model, self._vocab, self.ckg, self.funcWords, black_list, self.stopWords, batch,
-            self.constraintDecoder, counter, self.trigram,self.trigram_v2,self.train_text, self._dic, source_dict, self.bigramlm, self.confictValues, eval)
+            self._sess, self._model, self._vocab, batch,
+            self.constraintDecoder, self.train_text, eval)
 #           import pdb
 #           pdb.set_trace()
           t2 = time.time()
@@ -163,15 +139,6 @@ class BeamSearchDecoder(object):
       # Extract the output ids from the hypothesis and convert back to words
         decoded_file_selector_prob = os.path.join(self._rouge_dec_dir, "selector_prob.txt")
 #         decoded_file_art_mask = os.path.join(self._rouge_dec_dir, "art_mask.txt")
-
-        with open(decoded_file_selector_prob, "a") as f:
-          for fuck in selector_probs:
-            f.write(' '.join(["%.5f" % x for x in fuck]) + '\n')
-            break
-#         with open(decoded_file_art_mask, "a") as f:
-#           for fuck in art_mask:
-#             f.write(' '.join(["%d" % x for x in fuck]) + '\n')
-#             break
 
       output_ids = []
       if best_hyp == None:
