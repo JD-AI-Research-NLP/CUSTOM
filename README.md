@@ -2,7 +2,7 @@
 
 This repo provides the code for reproducing the experiments in NLPCC2021 paper: [CUSTOM: Aspect-Oriented Product Summarization for E-Commerce](https://arxiv.org/abs/2108.08010)
 
-![Image text](https://image.baidu.com/search/detail?ct=503316480&z=0&ipn=d&word=%E5%9B%BE%E7%89%87&step_word=&hs=0&pn=2&spn=0&di=102340&pi=0&rn=1&tn=baiduimagedetail&is=0%2C0&istype=0&ie=utf-8&oe=utf-8&in=&cl=2&lm=-1&st=undefined&cs=3079226347%2C3026670020&os=3917366788%2C64527412&simid=0%2C0&adpicid=0&lpn=0&ln=675&fr=&fmq=1632300809108_R&fm=&ic=undefined&s=undefined&hd=undefined&latest=undefined&copyright=undefined&se=&sme=&tab=0&width=undefined&height=undefined&face=undefined&ist=&jit=&cg=&bdtype=11&oriquery=&objurl=https%3A%2F%2Fgimg2.baidu.com%2Fimage_search%2Fsrc%3Dhttp%3A%2F%2Finews.gtimg.com%2Fnewsapp_match%2F0%2F1800232653%2F0%26refer%3Dhttp%3A%2F%2Finews.gtimg.com%26app%3D2002%26size%3Df9999%2C10000%26q%3Da80%26n%3D0%26g%3D0n%26fmt%3Djpeg%3Fsec%3D1634892820%26t%3D3724b9d72882171583565047c7f67345&fromurl=ippr_z2C%24qAzdH3FAzdH3Fetjo_z%26e3Btgjof_z%26e3Bqq_z%26e3Bv54AzdH3FwAzdH3Fdad8aldaAa9NLbaa&gsm=3&rpstart=0&rpnum=0&islist=&querylist=&nojc=undefined)
+![Image text](https://github.com/JD-AI-Research-NLP/CUSTOM/blob/main/Images/model_final.jpg)
 
 
 ## Environment
