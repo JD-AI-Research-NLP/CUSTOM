@@ -6,7 +6,6 @@ This repo provides the code for reproducing the experiments in NLPCC2021 paper: 
 
 
 ## Environment
--------
 ```
 tensorflow==1.14.0
 torch==0.4.0
@@ -26,7 +25,6 @@ torch==0.4.0
     1. ```sh run_decode.sh```
 
 ## Reference
-------------
 Thanks for your citation:
 ```
 @article{Liang2021CUSTOMAP,
