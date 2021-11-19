@@ -7,16 +7,8 @@ This repo provides the code for reproducing the experiments in NLPCC2021 paper: 
 
 ## Environment
 ```
-tensorflow==1.14.0
 torch==0.4.0
 ```
-## PGNet
-- Train
-    1. ```sh train.sh```
-- Predict
-    1. ```sh prediction.sh```
-
-
 ## UniLM
 - Train
     1. make pretrained_model folder, download Bert-base chinese version and move to this folder
